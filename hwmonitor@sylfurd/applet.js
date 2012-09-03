@@ -283,10 +283,10 @@ NetGraph.prototype = {
 
         cr.setLineWidth(0);
 
-        cr.setSourceRGBA(0, 1, 0, .5);
+        cr.setSourceRGBA(0, 1, 0, .75);
         plotSeries(this.rx);
 
-        cr.setSourceRGBA(1, 0, 0, .5);
+        cr.setSourceRGBA(1, 1, 0, .75);
         plotSeries(this.tx);
     },
 };
