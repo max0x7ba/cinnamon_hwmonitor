@@ -372,6 +372,8 @@ Itf.prototype = {
         //fstream.seek(0, 1, null);
         let dstream = Gio.DataInputStream.new(fstream);
         let [number, read] = dstream.read_line(null);
+        dstream.close(null);
+        fstream.close(null);
         return Number(number);
     },
 
