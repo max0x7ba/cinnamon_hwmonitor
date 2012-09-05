@@ -254,16 +254,23 @@ NetGraph.prototype = {
 	refreshData: function() {
         let [rx_speed, tx_speed] = this.provider.getData();
         this.rx.push(rx_speed);
-        let count = this.tx.push(tx_speed);
-        if(count > this.width - 2) {
-            this.rx.shift();
-            this.tx.shift();
-        }
+        this.tx.push(tx_speed);
 
+        // Rescale the plot if new max speed is reached.
         if(rx_speed > this.max_speed)
             this.max_speed = rx_speed;
         if(tx_speed > this.max_speed)
             this.max_speed = tx_speed;
+
+        if(this.rx.length > this.width - 2) {
+            let max_old = Math.max(this.rx.shift(), this.tx.shift());
+            // Rescale the plot if the max value shifts into oblivion.
+            if(max_old >= this.max_speed)
+                this.max_speed = Math.max(
+                    Math.max.apply(null, this.rx),
+                    Math.max.apply(null, this.tx)
+                    );
+        }
     },
 
     _plotData: function(cr) {
