@@ -43,9 +43,10 @@ MyApplet.prototype = {
 			let memProvider = new MemDataProvider();
 			let netProvider = new NetDataProvider();
 
-			let cpuGraph = new Graph(cpuProvider);
-			let memGraph = new Graph(memProvider);
-            let netGraph = new NetGraph(netProvider);
+            let height = this._panelHeight - 2;
+			let cpuGraph = new Graph(cpuProvider, height);
+			let memGraph = new Graph(memProvider, height);
+            let netGraph = new NetGraph(netProvider, height);
 
 			this.graphs = [
 			    cpuGraph,
@@ -112,12 +113,12 @@ MyApplet.prototype = {
 	}
 };
 
-function Graph(area, provider) {
-	this._init(area, provider);
+function Graph(provider, height) {
+	this._init(provider, height);
 }
 
 Graph.prototype = {
-	_init: function(_provider) {
+	_init: function(_provider, _height) {
 		this.width = 41;
 		this.datas = new Array(this.width);
 
@@ -126,7 +127,7 @@ Graph.prototype = {
         	this.datas[i] = 0;
         }
 
-		this.height = 20;
+		this.height = _height;
 		this.provider = _provider;
 
         this._pattern = new Cairo.LinearGradient(0, 0, 0, this.height);
@@ -224,14 +225,14 @@ Graph.prototype = {
 	}
 };
 
-function NetGraph(provider) {
-	this._init(provider);
+function NetGraph(provider, height) {
+	this._init(provider, height);
 }
 
 NetGraph.prototype = {
     __proto__: Graph.prototype,
 
-	_init: function(_provider) {
+	_init: function(_provider, _height) {
 		this.width = 41;
 		this.rx = [];
         this.tx = [];
@@ -241,7 +242,7 @@ NetGraph.prototype = {
         	this.tx[i] = 0;
         }
 
-		this.height = 20;
+		this.height = _height;
 		this.provider = _provider;
 
         this._pattern = new Cairo.LinearGradient(0, 0, 0, this.height);
