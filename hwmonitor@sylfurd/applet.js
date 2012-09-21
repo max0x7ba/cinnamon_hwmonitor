@@ -29,129 +29,125 @@ const Cairo = imports.cairo;
 const Gio = imports.gi.Gio;
 
 function MyApplet(orientation) {
-	this._init(orientation);
+    this._init(orientation);
 }
 
 MyApplet.prototype = {
-	__proto__: Applet.Applet.prototype,
+    __proto__: Applet.Applet.prototype,
 
     _init: function(orientation) {
         Applet.Applet.prototype._init.call(this, orientation);
 
-		try {
-			let cpuProvider = new CpuDataProvider();
-			let memProvider = new MemDataProvider();
-			let netProvider = new NetDataProvider();
+        try {
+            let cpuProvider = new CpuDataProvider();
+            let memProvider = new MemDataProvider();
+            let netProvider = new NetDataProvider();
 
-            let height = this._panelHeight - 2;
-			let cpuGraph = new Graph(cpuProvider, height);
-			let memGraph = new Graph(memProvider, height);
-            let netGraph = new NetGraph(netProvider, height);
+            let cpuGraph = new Graph(this, cpuProvider);
+            let memGraph = new Graph(this, memProvider);
+            let netGraph = new NetGraph(this, netProvider);
 
-			this.graphs = [
-			    cpuGraph,
-			    memGraph,
-			    netGraph,
+            this.graphs = [
+                cpuGraph,
+                memGraph,
+                netGraph,
             ];
 
-			this.itemOpenSysMon = new PopupMenu.PopupMenuItem("Open System Monitor");
-			this.itemOpenSysMon.connect('activate', Lang.bind(this, this._runSysMonActivate));
-			this._applet_context_menu.addMenuItem(this.itemOpenSysMon);
+            this.itemOpenSysMon = new PopupMenu.PopupMenuItem("Open System Monitor");
+            this.itemOpenSysMon.connect('activate', Lang.bind(this, this._runSysMonActivate));
+            this._applet_context_menu.addMenuItem(this.itemOpenSysMon);
 
-			this.graphArea = new St.DrawingArea();
-			this.graphArea.width = this.graphs.length * 45;
-			this.graphArea.connect('repaint', Lang.bind(this, this.onGraphRepaint));
+            this.graphArea = new St.DrawingArea();
+            this.graphArea.width = this.graphs.length * 45;
+            this.graphArea.connect('repaint', Lang.bind(this, this.onGraphRepaint));
 
-			this.actor.add_actor(this.graphArea);
+            this.actor.add_actor(this.graphArea);
 
-		    Mainloop.timeout_add(1000, Lang.bind(this, this._update));
-			this._update();
-		}
-		catch (e) {
-			global.logError(e);
-		}
-	},
+            Mainloop.timeout_add(1000, Lang.bind(this, this._update));
+            this._update();
+        }
+        catch (e) {
+            global.logError(e);
+        }
+    },
 
-	on_applet_clicked: function(event) {
-		this._runSysMon();
-	},
+    get height() { return this._panelHeight - 2; },
 
-	_runSysMonActivate: function() {
-		this._runSysMon();
-	},
+    on_applet_clicked: function(event) {
+        this._runSysMon();
+    },
 
-	_update: function() {
+    _runSysMonActivate: function() {
+        this._runSysMon();
+    },
 
-		for(let i = 0; i < this.graphs.length; i++)
-		{
-			this.graphs[i].refreshData();
-		}
+    _update: function() {
+        for(let i = 0; i < this.graphs.length; ++i) {
+            this.graphs[i].refreshData();
+        }
 
-		this.graphArea.queue_repaint();
+        this.graphArea.queue_repaint();
 
         return true;
-	},
+    },
 
-	_runSysMon: function() {
-		let _appSys = Cinnamon.AppSystem.get_default();
-		let _gsmApp = _appSys.lookup_app('gnome-system-monitor.desktop');
-		_gsmApp.activate();
-	},
+    _runSysMon: function() {
+        let _appSys = Cinnamon.AppSystem.get_default();
+        let _gsmApp = _appSys.lookup_app('gnome-system-monitor.desktop');
+        _gsmApp.activate();
+    },
 
-	onGraphRepaint: function(area) {
-		try {
-			for(let index = 0, x_offset = 0; index < this.graphs.length; index++)
-			{
-				area.get_context().translate(x_offset, 0);
+    onGraphRepaint: function(area) {
+        try {
+            for(let index = 0, x_offset = 0; index < this.graphs.length; index++)
+            {
+                area.get_context().translate(x_offset, 0);
                 x_offset = 45;
-				this.graphs[index].paint(area);
-			}
-		}catch(e)
-		{
-			global.logError(e);
-		}
-	}
+                this.graphs[index].paint(this, area);
+            }
+        }catch(e) {
+            global.logError(e);
+        }
+    }
 };
 
-function Graph(provider, height) {
-	this._init(provider, height);
+function Graph(applet, provider) {
+    this._init(applet, provider);
 }
 
 Graph.prototype = {
-	_init: function(_provider, _height) {
-		this.width = 41;
-		this.datas = new Array(this.width);
+    _init: function(applet, provider) {
+        this.width = 41;
+        this.datas = new Array(this.width);
 
-		for(let i = 0; i <this.datas.length; i++)
-        {
-        	this.datas[i] = 0;
+        for(let i = 0; i < this.datas.length; ++i) {
+            this.datas[i] = 0;
         }
 
-		this.height = _height;
-		this.provider = _provider;
+        this.provider = provider;
 
-        this._pattern = new Cairo.LinearGradient(0, 0, 0, this.height);
+        this._pattern = new Cairo.LinearGradient(0, 0, 0, applet.height);
         this._pattern.addColorStopRGBA(0, 1, 0, 0, 1);
         this._pattern.addColorStopRGBA(0.5, 1, 1, 0.2, 1);
         this._pattern.addColorStopRGBA(0.7, 0.4, 1, 0.3, 1);
         this._pattern.addColorStopRGBA(1, 0.2, 0.7, 1, 1);
-	},
+    },
 
-	paint: function(area)
-	{
-		let cr = area.get_context();
+    paint: function(applet, area) {
+        let cr = area.get_context();
+        let height = applet.height;
 
-		// Border
+        // Border
         cr.setSourceRGBA(1, 1, 1, 0.9);
         cr.setLineWidth(1);
-        cr.rectangle(0.5, 0.5, this.width+0.5, this.height+0.5);
+        cr.rectangle(0.5, 0.5, this.width+0.5, height+0.5);
         cr.stroke();
 
-		// Background
-        let gradientHeight = this.height-1;
+        // Background
+        let gradientHeight = height-1;
         let gradientWidth = this.width-1;
         let gradientOffset = 1;
-        let pattern = new Cairo.LinearGradient(0, 0, 0, this.height);
+        let pattern = new Cairo.LinearGradient(0, 0, 0, height);
         pattern.addColorStopRGBA(0, 1, 1, 1, 0.3);
         pattern.addColorStopRGBA(1, 0, 0, 0, 0.3);
         cr.setSource(pattern);
@@ -161,98 +157,93 @@ Graph.prototype = {
         // Grid
         cr.setLineWidth(1);
         cr.setSourceRGBA(1, 1, 1, 0.4);
-        cr.moveTo(0, Math.round(this.height/2)+0.5);
-        cr.lineTo(this.width, Math.round(this.height/2)+0.5);
+        cr.moveTo(0, Math.round(height/2)+0.5);
+        cr.lineTo(this.width, Math.round(height/2)+0.5);
         cr.stroke();
         cr.moveTo(Math.round(this.width*0.5)+0.5, 0);
-        cr.lineTo(Math.round(this.width*0.5)+0.5, this.height);
+        cr.lineTo(Math.round(this.width*0.5)+0.5, height);
         cr.stroke();
         cr.setSourceRGBA(1, 1, 1, 0.2);
-        cr.moveTo(0, Math.round(this.height*0.25)+0.5);
-        cr.lineTo(this.width, Math.round(this.height*0.25)+0.5);
+        cr.moveTo(0, Math.round(height*0.25)+0.5);
+        cr.lineTo(this.width, Math.round(height*0.25)+0.5);
         cr.stroke();
-        cr.moveTo(0, Math.round(this.height*0.75)+0.5);
-        cr.lineTo(this.width, Math.round(this.height*0.75)+0.5);
+        cr.moveTo(0, Math.round(height*0.75)+0.5);
+        cr.lineTo(this.width, Math.round(height*0.75)+0.5);
         cr.stroke();
         cr.moveTo(Math.round(this.width*0.25)+0.5, 0);
-        cr.lineTo(Math.round(this.width*0.25)+0.5, this.height);
+        cr.lineTo(Math.round(this.width*0.25)+0.5, height);
         cr.stroke();
         cr.moveTo(Math.round(this.width*0.75)+0.5, 0);
-        cr.lineTo(Math.round(this.width*0.75)+0.5, this.height);
+        cr.lineTo(Math.round(this.width*0.75)+0.5, height);
         cr.stroke();
 
-        this._plotData(cr);
+        this._plotData(cr, height);
 
         // Label
         let name = this.provider.getName();
-		cr.setFontSize(7);
+        cr.setFontSize(7);
         cr.setSourceRGBA(0, 0, 0, 0.5);
-		cr.moveTo(2.5, 7.5);
-		cr.showText(name);
+        cr.moveTo(2.5, 7.5);
+        cr.showText(name);
         cr.setSourceRGBA(1, 1, 1, 1);
-		cr.moveTo(2, 7);
-		cr.showText(name);
+        cr.moveTo(2, 7);
+        cr.showText(name);
     },
 
-    _plotData: function(cr)
-    {
+    _plotData: function(cr, height) {
         // Datas
         cr.setLineWidth(0);
-        cr.moveTo(1, this.height - this.datas[0]);
+        cr.moveTo(1, height - this.datas[0]);
 
-        for(let i = 1; i <this.datas.length; i++)
-        {
-        	cr.lineTo(1+i, this.height - this.datas[i]);
+        let scaler = height - 1;
+        for(let i = 1; i < this.datas.length; ++i) {
+            cr.lineTo(1 + i, height - scaler * this.datas[i]);
         }
 
-    	cr.lineTo(this.datas.length, this.height);
-    	cr.lineTo(1, this.height);
+        cr.lineTo(this.datas.length, height);
+        cr.lineTo(1, height);
 
-    	cr.closePath();
+        cr.closePath();
 
         cr.setSource(this._pattern);
         cr.fill();
     },
 
-	refreshData: function()
-	{
-		let data = this.provider.getData()*(this.height-1);
-
-		if (this.datas.push(data)>this.width-2)
-		{
-			this.datas.shift();
-		}
-	}
+    refreshData: function()     {
+        let data = this.provider.getData();
+        if (this.datas.push(data) > this.width - 2) {
+            this.datas.shift();
+        }
+    }
 };
 
-function NetGraph(provider, height) {
-	this._init(provider, height);
+function NetGraph(applet, provider) {
+    this._init(applet, provider);
 }
 
 NetGraph.prototype = {
     __proto__: Graph.prototype,
 
-	_init: function(_provider, _height) {
-		this.width = 41;
-		this.rx = [];
+    _init: function(applet, provider) {
+        this.width = 41;
+        this.rx = [];
         this.tx = [];
         this.max_speed = 1;
-		for(let i = 0; i < this.width; ++i) {
-        	this.rx[i] = 0;
-        	this.tx[i] = 0;
+        for(let i = 0; i < this.width; ++i) {
+            this.rx[i] = 0;
+            this.tx[i] = 0;
         }
 
-		this.height = _height;
-		this.provider = _provider;
+        this.provider = provider;
 
-        this._pattern = new Cairo.LinearGradient(0, 0, 0, this.height);
+        this._pattern = new Cairo.LinearGradient(0, 0, 0, applet.height);
         this._pattern.addColorStopRGBA(0, 1, 0, 0, 1);
         this._pattern.addColorStopRGBA(0.5, 1, 1, 0.2, 1);
         this._pattern.addColorStopRGBA(0.7, 0.4, 1, 0.3, 1);
         this._pattern.addColorStopRGBA(1, 0.2, 0.7, 1, 1);
     },
 
-	refreshData: function() {
+    refreshData: function() {
         let [rx_speed, tx_speed] = this.provider.getData();
         this.rx.push(rx_speed);
         this.tx.push(tx_speed);
@@ -274,18 +265,18 @@ NetGraph.prototype = {
         }
     },
 
-    _plotData: function(cr) {
-        let scaler = (this.height - 1) / this.max_speed;
-        let height = this.height;
+    _plotData: function(cr, height) {
+        let scaler = (height - 1) / this.max_speed;
+        let height = height;
         function plotSeries(series) {
             cr.moveTo(1, height - scaler * series[0]);
             for(let i = 1; i < series.length; ++i) {
-        	    cr.lineTo(1+i, height - scaler * series[i]);
+                cr.lineTo(1+i, height - scaler * series[i]);
             }
-    	    cr.lineTo(series.length, height);
-    	    cr.lineTo(1, height);
+            cr.lineTo(series.length, height);
+            cr.lineTo(1, height);
 
-    	    cr.closePath();
+            cr.closePath();
             cr.fill();
         }
 
@@ -300,63 +291,58 @@ NetGraph.prototype = {
 };
 
 function CpuDataProvider() {
-	this._init();
+    this._init();
 }
 
 CpuDataProvider.prototype = {
 
-	_init: function(){
-		this.gtop = new GTop.glibtop_cpu();
-		this.current = 0;
-		this.last = 0;
-		this.usage = 0;
-		this.last_total = 0;
-	},
+    _init: function() {
+        this.gtop = new GTop.glibtop_cpu();
+        this.current = 0;
+        this.last = 0;
+        this.usage = 0;
+        this.last_total = 0;
+    },
 
-	getData: function()
-	{
-		GTop.glibtop_get_cpu(this.gtop);
+    getData: function() {
+        GTop.glibtop_get_cpu(this.gtop);
 
-		this.current = this.gtop.idle;
+        this.current = this.gtop.idle;
 
-		let delta = (this.gtop.total - this.last_total);
-		if (delta > 0) {
-			this.usage =(this.current - this.last) / delta;
-			this.last = this.current;
+        let delta = (this.gtop.total - this.last_total);
+        if (delta > 0) {
+            this.usage =(this.current - this.last) / delta;
+            this.last = this.current;
 
-			this.last_total = this.gtop.total;
-		}
+            this.last_total = this.gtop.total;
+        }
 
-		return 1-this.usage;
-	},
+        return 1-this.usage;
+    },
 
-	getName: function()
-	{
-		return "CPU";
-	}
+    getName: function() {
+        return "CPU";
+    }
 };
 
 function MemDataProvider() {
-	this._init();
+    this._init();
 }
 
 MemDataProvider.prototype = {
 
-	_init: function(){
-			this.gtopMem = new GTop.glibtop_mem();
-	},
+    _init: function() {
+        this.gtopMem = new GTop.glibtop_mem();
+    },
 
-	getData: function()
-	{
-		GTop.glibtop_get_mem(this.gtopMem);
+    getData: function() {
+        GTop.glibtop_get_mem(this.gtopMem);
+        return 1 - (this.gtopMem.buffer + this.gtopMem.cached + this.gtopMem.free) / this.gtopMem.total;
+    },
 
-		return 1 - (this.gtopMem.buffer + this.gtopMem.cached + this.gtopMem.free) / this.gtopMem.total;
-	},
-
-	getName: function()
-	{
-		return "MEM";
-	}
+    getName: function() {
+        return "MEM";
+    }
 };
 
 
@@ -450,25 +436,25 @@ function Itfs() {
 }
 
 function NetDataProvider() {
-	this._init();
+    this._init();
 }
 
 NetDataProvider.prototype = {
-	_init: function(){
+    _init: function(){
         this.itfs = new Itfs();
-	},
+    },
 
-	getData: function()	{
+    getData: function() {
         return this.itfs.update();
-	},
+    },
 
-	getName: function()	{
-		return "NET";
-	}
+    getName: function() {
+        return "NET";
+    }
 };
 
 
 function main(metadata, orientation) {
-	let myApplet = new MyApplet(orientation);
-	return myApplet;
+    let myApplet = new MyApplet(orientation);
+    return myApplet;
 }
